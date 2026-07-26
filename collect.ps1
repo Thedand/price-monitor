@@ -3,6 +3,8 @@ param(
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'config\products.json'),
     [string]$DataDirectory = (Join-Path $PSScriptRoot 'data'),
     [int]$CacheHours = 6,
+    [int]$MaxVariantDrop = 2,
+    [decimal]$MaxVariantDropPercent = 5,
     [switch]$Refresh
 )
 
@@ -17,6 +19,12 @@ $Config = Get-Content -Raw -LiteralPath $ConfigPath | ConvertFrom-Json
 $CollectedAt = [DateTimeOffset]::Now.ToString('o')
 $Script:SitemapCache = @{}
 $CacheDirectory = Join-Path $PSScriptRoot 'cache'
+$BaselinePath = Join-Path $DataDirectory 'latest.csv'
+$BaselineRows = if (Test-Path -LiteralPath $BaselinePath) {
+    @(Import-Csv -LiteralPath $BaselinePath)
+} else {
+    @()
+}
 New-Item -ItemType Directory -Force -Path $CacheDirectory | Out-Null
 
 function Get-PageContent([string]$Url, [int]$TimeoutSec = 30) {
@@ -162,8 +170,34 @@ foreach ($product in $Config.products) {
             'lursan_category' { @(Get-LursanCategoryRows $product $offerKey $source) }
             default           { throw "Unknown collector: $($source.collector)" }
         }
-        if ($sourceRows.Count -ne $source.expectedVariants) {
-            throw "$offerKey/$($product.key): expected $($source.expectedVariants) variants, found $($sourceRows.Count). No data was saved."
+        $baselineSourceRows = @($BaselineRows | Where-Object {
+            $_.product_key -eq $product.key -and $_.offer_key -eq $offerKey
+        })
+        if ($baselineSourceRows.Count) {
+            $allowedDrop = [math]::Max(
+                $MaxVariantDrop,
+                [math]::Ceiling($baselineSourceRows.Count * $MaxVariantDropPercent / 100)
+            )
+            $drop = $baselineSourceRows.Count - $sourceRows.Count
+            if ($drop -gt $allowedDrop) {
+                throw "$offerKey/$($product.key): previous snapshot had $($baselineSourceRows.Count) variants, found $($sourceRows.Count); maximum allowed drop is $allowedDrop. No data was saved."
+            }
+
+            $previousUrls = @($baselineSourceRows.url | Where-Object { $_ })
+            $currentUrls = @($sourceRows.url | Where-Object { $_ })
+            $missingUrls = @(Compare-Object $previousUrls $currentUrls |
+                Where-Object SideIndicator -eq '<=' |
+                ForEach-Object { $_.InputObject })
+            $addedUrls = @(Compare-Object $previousUrls $currentUrls |
+                Where-Object SideIndicator -eq '=>' |
+                ForEach-Object { $_.InputObject })
+            if ($missingUrls.Count -or $addedUrls.Count) {
+                Write-Warning "$offerKey/$($product.key): assortment changed; missing $($missingUrls.Count), added $($addedUrls.Count)."
+                $missingUrls | ForEach-Object { Write-Warning "Missing: $_" }
+                $addedUrls | ForEach-Object { Write-Warning "Added: $_" }
+            }
+        } elseif ($sourceRows.Count -ne $source.expectedVariants) {
+            throw "$offerKey/$($product.key): initial snapshot expected $($source.expectedVariants) variants, found $($sourceRows.Count). No data was saved."
         }
         $Rows += $sourceRows
     }

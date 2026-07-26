@@ -3,7 +3,7 @@ name: Price monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 9 * * *'
+    - cron: '0 9 * * 1'
       timezone: 'Europe/Chisinau'
 
 concurrency:

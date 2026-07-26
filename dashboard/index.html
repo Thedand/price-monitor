@@ -14,7 +14,7 @@
       <span class="brand-mark">PF</span>
       <span><strong>Price Monitor</strong><small>ПФ-115 · рынок ПМР</small></span>
     </a>
-    <div class="updated" id="updatedAt">Загрузка данных…</div>
+    <time class="updated" id="updatedAt">Загрузка данных…</time>
   </header>
 
   <main>
@@ -35,6 +35,32 @@
       <article class="metric"><span>Лучшая экономия</span><strong id="metricSaving">—</strong><small id="metricSavingLabel">по выбранному сегменту</small></article>
       <article class="metric accent"><span>Средняя экономия</span><strong id="metricAverage">—</strong><small>между min и max</small></article>
       <article class="metric"><span>Источников</span><strong id="metricSources">—</strong><small>магазин × торговая марка</small></article>
+    </section>
+
+    <section class="trend-panel" aria-labelledby="trendTitle">
+      <div class="trend-top">
+        <div>
+          <p class="eyebrow">ДИНАМИКА</p>
+          <h2 id="trendTitle">Цена за килограмм</h2>
+          <p id="trendSubtitle">Последние успешные срезы · обычная цена</p>
+        </div>
+        <div class="trend-filters">
+          <label><span>Цвет</span><select id="trendColor"></select></label>
+          <label><span>Фасовка</span><select id="trendPackage"><option value="small">Малая · 0,8–0,9 кг</option><option value="large" selected>Большая · 2,6–2,8 кг</option></select></label>
+        </div>
+      </div>
+
+      <div class="trend-metrics" aria-label="Показатели динамики">
+        <article><span>Лучшая цена сейчас</span><strong id="trendBest">—</strong><small id="trendBestLabel">—</small></article>
+        <article><span>Изменение с прошлого среза</span><strong id="trendDelta">—</strong><small id="trendDeltaLabel">—</small></article>
+        <article><span>Накоплено срезов</span><strong id="trendSnapshots">—</strong><small>до 12 последних дат</small></article>
+      </div>
+
+      <div class="trend-chart-wrap">
+        <div id="trendChart" class="trend-chart"></div>
+        <div id="trendEmpty" class="trend-empty" hidden><strong>Динамика пока недоступна</strong><span>Она появится после двух успешных запусков.</span></div>
+      </div>
+      <div class="trend-legend" id="trendLegend" aria-label="Источники цен"></div>
     </section>
 
     <section class="workspace">
