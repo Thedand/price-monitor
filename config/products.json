@@ -1,0 +1,77 @@
+{
+  "products": [
+    {
+      "key": "pf115_economy",
+      "segment": "economy",
+      "product": "Эмаль ПФ-115",
+      "sources": {
+        "mirremonta_dekart": {
+          "collector": "mirremonta",
+          "store": "mirremonta.md",
+          "brand": "DekArt",
+          "url": "https://mirremonta.md/catalog/35644",
+          "expectedVariants": 40
+        },
+        "farba_dekart": {
+          "collector": "farba_sitemap",
+          "store": "farba.md",
+          "brand": "DekArt",
+          "sitemapUrl": "https://farba.md/sitemap.xml",
+          "urlPattern": "(?i)/dekart--jemal-pph-115-.*(?:09|28).*\\.html$",
+          "titleRegex": "(?i)^DekArt\\s+Эмаль ПФ-115\\s+(?<color>.+?)(?:\\s+глянцевая)?\\s*/(?<package>[0-9],[0-9])",
+          "expectedVariants": 40
+        },
+        "lursan_fazenda": {
+          "collector": "lursan_category",
+          "store": "lursan.com",
+          "brand": "Fazenda",
+          "url": "https://lursan.com/index.php?route=product/category&path=1107_1124_1125",
+          "maxPages": 4,
+          "titleRegex": "(?i)^(?<color>.+?)\\s+эмаль ПФ-115, Fazenda,\\s*(?<package>[0-9]+,[0-9]+)\\s*кг",
+          "expectedVariants": 38
+        }
+      }
+    },
+    {
+      "key": "pf115_standard",
+      "segment": "standard",
+      "product": "Эмаль ПФ-115",
+      "sources": {
+        "mirremonta_farbex": {
+          "collector": "mirremonta",
+          "store": "mirremonta.md",
+          "brand": "Farbex",
+          "url": "https://mirremonta.md/catalog/35528",
+          "expectedVariants": 53
+        },
+        "farba_farbex": {
+          "collector": "farba_sitemap",
+          "store": "farba.md",
+          "brand": "Farbex",
+          "sitemapUrl": "https://farba.md/sitemap.xml",
+          "urlPattern": "(?i)/farbex--jemal-pph-115-.*(?:09|28).*up6sht\\.html$",
+          "titleRegex": "(?i)^Farbex\\s+Эмаль ПФ-115\\s+(?<color>.+?)(?:\\s+глянцевая)?\\s*/(?<package>[0-9],[0-9])",
+          "expectedVariants": 22
+        },
+        "farba_zebra_master": {
+          "collector": "farba_sitemap",
+          "store": "farba.md",
+          "brand": "Zebra Master",
+          "sitemapUrl": "https://farba.md/sitemap.xml",
+          "urlPattern": "(?i)/jemal-pph-115-.*(?:08kg|26kg)-zebra-serija-master.*\\.html$",
+          "titleRegex": "(?i)^Эмаль ПФ-115\\s+(?<color>.+?)\\s+универсальная\\s+(?<package>[0-9],[0-9])кг\\s+Zebra",
+          "expectedVariants": 46
+        },
+        "lursan_korabelnaya": {
+          "collector": "lursan_category",
+          "store": "lursan.com",
+          "brand": "Корабельная",
+          "url": "https://lursan.com/index.php?route=product/category&path=1107_1124_1126",
+          "maxPages": 8,
+          "titleRegex": "(?i)^(?<color>.+?)\\s+эмаль ПФ-115 ТМ Корабельная,\\s*(?<package>(?:0,9|2,8))\\s*кг",
+          "expectedVariants": 54
+        }
+      }
+    }
+  ]
+}
