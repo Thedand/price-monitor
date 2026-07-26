@@ -1,0 +1,61 @@
+name: Price monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 * * *'
+      timezone: 'Europe/Chisinau'
+
+concurrency:
+  group: price-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  collect-and-publish:
+    runs-on: windows-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Collect prices and rebuild reports
+        shell: pwsh
+        run: ./run.ps1
+
+      - name: Commit updated data
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data reports dashboard
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 1) {
+            git commit -m "data: update prices"
+            git push
+          } elseif ($LASTEXITCODE -eq 0) {
+            Write-Host "No data changes to commit."
+          } else {
+            throw "Cannot determine whether generated data changed."
+          }
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload dashboard
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dashboard
+
+      - name: Deploy dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4
