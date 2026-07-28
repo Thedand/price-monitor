@@ -3,7 +3,8 @@ name: Price monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 9 * * 1'
+    # Avoid the start-of-hour Actions load peak, where scheduled runs can be delayed or dropped.
+    - cron: '17 9 * * 1'
       timezone: 'Europe/Chisinau'
 
 concurrency:
