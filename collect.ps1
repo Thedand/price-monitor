@@ -5,6 +5,7 @@ param(
     [int]$CacheHours = 6,
     [int]$MaxVariantDrop = 2,
     [decimal]$MaxVariantDropPercent = 5,
+    [ValidateRange(0, 60000)][int]$RequestDelayMilliseconds = 1000,
     [switch]$Refresh
 )
 
@@ -16,6 +17,7 @@ $Headers = @{
 }
 $ColorAliases = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'config\color-aliases.json') | ConvertFrom-Json -AsHashtable
 $Config = Get-Content -Raw -LiteralPath $ConfigPath | ConvertFrom-Json
+. (Join-Path $PSScriptRoot 'lib\ProductTitleParser.ps1')
 $CollectedAt = [DateTimeOffset]::Now.ToString('o')
 $Script:SitemapCache = @{}
 $CacheDirectory = Join-Path $PSScriptRoot 'cache'
@@ -120,18 +122,24 @@ function Get-FarbaSitemapRows($Product, [string]$OfferKey, $Source) {
     foreach ($url in $urls) {
         $html = Get-PageContent $url 30
         $title = [System.Net.WebUtility]::HtmlDecode([regex]::Match($html, '<h1[^>]*class="[^"]*title_mod[^"]*"[^>]*>(?<value>.*?)</h1>', 'IgnoreCase').Groups['value'].Value)
-        $titleMatch = [regex]::Match($title, $Source.titleRegex)
-        if (-not $titleMatch.Success) { throw "Cannot parse Farba title: $title ($url)" }
         $old = [regex]::Match($html, 'class="productOldPrice"[^>]*>\s*(?<value>[0-9]+,[0-9]+)', 'IgnoreCase').Groups['value'].Value
         $current = [regex]::Match($html, 'class="productPrice"[^>]*>\s*(?<value>[0-9]+,[0-9]+)', 'IgnoreCase').Groups['value'].Value
         $sku = [regex]::Match($html, 'Код:&nbsp;(?<value>[^<]+)', 'IgnoreCase').Groups['value'].Value
         $id = [regex]::Match($html, 'data-pid="(?<value>\d+)"', 'IgnoreCase').Groups['value'].Value
+        try {
+            $attributes = Resolve-ProductTitleAttributes -Title $title -ProductName $Product.product `
+                -Brand $Source.brand -BrandRegex $Source.brandRegex -LegacyTitleRegex $Source.titleRegex `
+                -ColorAliases $ColorAliases -AllowedPackages $Source.allowedPackages `
+                -Sku $sku -AttributeOverrides $Source.attributeOverrides
+        } catch {
+            throw "$($_.Exception.Message) ($url)"
+        }
         $regular = if ($old) { Convert-Price $old } else { Convert-Price $current }
         $promo = if ($old) { Convert-Price $current } else { $null }
         $inStock = $html -notmatch 'Нет в наличии|Закончился'
-        New-Row $Product $OfferKey $Source.brand $Source.store $titleMatch.Groups['package'].Value `
-            $titleMatch.Groups['color'].Value $regular $promo $inStock $sku '' $id $url
-        Start-Sleep -Seconds 1
+        New-Row $Product $OfferKey $attributes.Brand $Source.store $attributes.Package `
+            $attributes.Color $regular $promo $inStock $sku '' $id $url
+        if ($RequestDelayMilliseconds) { Start-Sleep -Milliseconds $RequestDelayMilliseconds }
     }
 }
 
@@ -144,18 +152,27 @@ function Get-LursanCategoryRows($Product, [string]$OfferKey, $Source) {
             $match = [regex]::Match($block, '<a class="product-thumb__name" href="(?<url>[^"]+)">(?<title>[^<]+)</a>[\s\S]*?<div class="product-thumb__price price" data-price="(?<price>[^"]+)" data-special="(?<special>[^"]*)"', 'IgnoreCase')
             if (-not $match.Success) { continue }
             $title = [System.Net.WebUtility]::HtmlDecode($match.Groups['title'].Value)
-            $titleMatch = [regex]::Match($title, $Source.titleRegex)
-            if (-not $titleMatch.Success) { continue }
+            try {
+                $attributes = Resolve-ProductTitleAttributes -Title $title -ProductName $Product.product `
+                    -Brand $Source.brand -BrandRegex $Source.brandRegex -LegacyTitleRegex $Source.titleRegex `
+                    -ColorAliases $ColorAliases -AllowedPackages $Source.allowedPackages `
+                    -AttributeOverrides $Source.attributeOverrides
+            } catch {
+                Write-Warning "$($_.Exception.Message) ($($match.Groups['url'].Value))"
+                continue
+            }
             $regular = Convert-Price $match.Groups['price'].Value
             $special = Convert-Price $match.Groups['special'].Value
             $promo = if ($special -and $special -gt 0) { $special } else { $null }
             $productUrl = [System.Net.WebUtility]::HtmlDecode($match.Groups['url'].Value)
             $id = [regex]::Match($productUrl, 'product_id=(?<value>\d+)').Groups['value'].Value
             $inStock = $block -notmatch 'Закончился|Скоро в наличии'
-            New-Row $Product $OfferKey $Source.brand $Source.store $titleMatch.Groups['package'].Value `
-                $titleMatch.Groups['color'].Value $regular $promo $inStock '' '' $id $productUrl
+            New-Row $Product $OfferKey $attributes.Brand $Source.store $attributes.Package `
+                $attributes.Color $regular $promo $inStock '' '' $id $productUrl
         }
-        if ($page -lt $Source.maxPages) { Start-Sleep -Seconds 1 }
+        if ($page -lt $Source.maxPages -and $RequestDelayMilliseconds) {
+            Start-Sleep -Milliseconds $RequestDelayMilliseconds
+        }
     }
 }
 
