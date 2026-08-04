@@ -5,7 +5,8 @@ param(
     [int]$CacheHours = 6,
     [int]$MaxVariantDrop = 2,
     [decimal]$MaxVariantDropPercent = 5,
-    [ValidateRange(0, 60000)][int]$RequestDelayMilliseconds = 1000,
+    [ValidateRange(0, 60000)][int]$RequestDelayMilliseconds = 2000,
+    [ValidateRange(0, 10)][int]$MaxHttpRetries = 4,
     [switch]$Refresh
 )
 
@@ -39,9 +40,30 @@ function Get-PageContent([string]$Url, [int]$TimeoutSec = 30) {
         $age = [DateTime]::UtcNow - (Get-Item -LiteralPath $cachePath).LastWriteTimeUtc
         if ($age.TotalHours -lt $CacheHours) { return Get-Content -Raw -LiteralPath $cachePath }
     }
-    $content = (Invoke-WebRequest -Uri $Url -Headers $Headers -MaximumRedirection 5 -TimeoutSec $TimeoutSec).Content
-    [IO.File]::WriteAllText($cachePath, $content, [Text.UTF8Encoding]::new($false))
-    $content
+    for ($attempt = 0; $attempt -le $MaxHttpRetries; $attempt++) {
+        try {
+            $content = (Invoke-WebRequest -Uri $Url -Headers $Headers -MaximumRedirection 5 -TimeoutSec $TimeoutSec).Content
+            [IO.File]::WriteAllText($cachePath, $content, [Text.UTF8Encoding]::new($false))
+            return $content
+        } catch {
+            $response = $_.Exception.Response
+            $statusCode = if ($response -and $response.StatusCode) { [int]$response.StatusCode } else { 0 }
+            $retryable = $statusCode -in @(408, 425, 429, 500, 502, 503, 504)
+            if (-not $retryable -or $attempt -eq $MaxHttpRetries) {
+                throw "Request failed after $($attempt + 1) attempt(s), HTTP $statusCode`: $Url. $($_.Exception.Message)"
+            }
+
+            $delaySeconds = [math]::Min(40, 5 * [math]::Pow(2, $attempt))
+            if ($response.Headers -and $response.Headers.RetryAfter -and $response.Headers.RetryAfter.Delta) {
+                $delaySeconds = [math]::Min(45, [math]::Max(
+                    $delaySeconds,
+                    [math]::Ceiling($response.Headers.RetryAfter.Delta.TotalSeconds)
+                ))
+            }
+            Write-Warning "HTTP $statusCode for $Url; retry $($attempt + 1)/$MaxHttpRetries in $delaySeconds seconds."
+            Start-Sleep -Seconds $delaySeconds
+        }
+    }
 }
 
 function Convert-Price([string]$Value) {
