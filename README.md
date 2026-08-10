@@ -107,3 +107,11 @@ Workflow `.github/workflows/price-monitor.yml` каждый понедельни
 
 Если default branch защищена от прямой записи, разрешите GitHub Actions
 создавать коммиты либо используйте отдельную ветку данных.
+
+## Автоматические обновления GitHub Actions
+
+Dependabot еженедельно проверяет версии Actions и объединяет их в один PR.
+Workflow `CI` проверяет синтаксис PowerShell, JSON-конфигурацию и парсер названий.
+Если PR создан Dependabot, меняет только `.github/workflows/*.yml`/`*.yaml` и успешно
+проходит CI, workflow `Dependabot auto-merge` автоматически сливает обновление в
+`main`. При неуспешной проверке или неожиданном составе файлов слияние блокируется.

@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $parseErrors = @()
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            $parseErrors += $errors
+          }
+          if ($parseErrors.Count) {
+            $parseErrors | Format-List
+            throw "PowerShell syntax validation failed."
+          }
+
+      - name: Validate JSON configuration
+        shell: pwsh
+        run: |
+          Get-ChildItem config -Filter *.json | ForEach-Object {
+            Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json | Out-Null
+          }
+
+      - name: Test product title parser
+        shell: pwsh
+        run: ./tests/test-title-parser.ps1
